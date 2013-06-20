@@ -36,20 +36,25 @@ module ActsAsTenant
   module ModelExtensions
     def self.included(base)
       base.extend(ClassMethods)
-    end
-  
-    module ClassMethods
 
-      # Patch to have default_scope to take in lambda as  an argument
-      def current_scoped_methods
-        method = scoped_methods.last
-        if method.respond_to?(:call)
-          unscoped(&method)
-        else
-          method
+      # Patch to have default_scope to take lambda as an argument. default_scope did not start taking lambdas as
+      # arguments until Rails 3.1. This overrides the class method of the ActiveRecord base class:
+      # (activerecord-3.0.20/lib/active_record/base.rb)
+      base.instance_eval do
+        def current_scoped_methods
+          last_scoped_method = scoped_methods.last
+          # If the scope had lambda or proc
+          if last_scoped_method.respond_to?(:call)
+            unscoped(&last_scoped_method)
+          else
+            last_scoped_method
+          end
         end
       end
 
+    end
+  
+    module ClassMethods
       def acts_as_tenant(association = :account)
         belongs_to association
         ActsAsTenant.set_tenant_klass(association)
